@@ -20,7 +20,7 @@ vidnames = [['calibration_videos/sba_cam08150951.avi'],
              # 'calibration_videos/extrinsic_08154551-08152151_cam08154551.avi'
              ]]
 
-cam_names = ['08150951', '08151951', '08152151', '08154551']
+cam_names = ['08154551', '08150951', '08151951', '08152151']
 
 n_cams = len(vidnames)
 

@@ -47,8 +47,8 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
     for frame_idx in range(n_frames):
         bodypart_dict = {}
         for cam_idx in range(len(cam)):
-            bodypart_dict[cam[cam_idx]['cam_sns'][0]] = np.array([cam[0]['{}_x'.format(body_part)][frame_idx],
-                                                                  cam[0]['{}_y'.format(body_part)][frame_idx]])
+            bodypart_dict[cam[cam_idx]['cam_sns'][0]] = np.array([cam[cam_idx]['{}_x'.format(body_part)][frame_idx],
+                                                                  cam[cam_idx]['{}_y'.format(body_part)][frame_idx]])
         # call the function to compute the 3d points and add it to the table
         coord, n_cams = ct.locate_dlt(cam_sns=cam_sns, camera_coords=bodypart_dict, intrinsic_params=intrinsic_params,
                                       extrinsic_params=extrinsic_params, rectify_params=rectify_params)
