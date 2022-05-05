@@ -113,8 +113,8 @@ def triangulate_points(sn1, sn2, img_pts, intrinsic_params, extrinsic_params):
     t2 = extrinsic_params[sn2]['t']
     pts_1 = img_pts_1.reshape((-1, 1, 2))
     pts_2 = img_pts_2.reshape((-1, 1, 2))
-    pts_1 = cv2.undistortPoints(pts_1, k1, d1)
-    pts_2 = cv2.undistortPoints(pts_2, k2, d2)
+    pts_1 = cv2.undistortPoints(pts_1, np.array(k1), np.array(d1))
+    pts_2 = cv2.undistortPoints(pts_2, np.array(k2), np.array(d2))
     p1 = np.hstack((r1, t1))
     p2 = np.hstack((r2, t2))
     pts_4d = cv2.triangulatePoints(p1, p2, pts_1, pts_2)

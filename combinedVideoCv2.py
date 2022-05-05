@@ -176,15 +176,17 @@ def merge_videos(videos_in, video_out, grid_size=None, titles=None, title_positi
 
 if __name__ == '__main__':
     videos_to_merge = [
-        'test_cam0.mp4',
-        'test_cam1.mp4',
+        'test_cam0_frames-0573.mp4',
+        'test_cam1_frames-0573.mp4',
+        'test_cam2_frames-0573.mp4',
+        'test_cam3_frames-0573.mp4',
         '3d_plot1.mp4',
-        '3d_plot.mp4',
-        'test_cam2.mp4',
-        'test_cam3.mp4'
+        '3d_plot2.mp4',
+        '3d_plot3.mp4',
+        '3d_plot.mp4'
     ]
     merge_videos(
         videos_to_merge,
         'merged.mp4',
-        grid_size=(3, 2),
+        grid_size=(2, 4),
         max_frames=554)
