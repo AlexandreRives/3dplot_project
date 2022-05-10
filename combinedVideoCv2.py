@@ -180,10 +180,7 @@ if __name__ == '__main__':
         'test_cam1_frames-0573.mp4',
         'test_cam2_frames-0573.mp4',
         'test_cam3_frames-0573.mp4',
-        '3d_plot1.mp4',
-        '3d_plot2.mp4',
-        '3d_plot3.mp4',
-        '3d_plot.mp4'
+        'video.avi',
     ]
     merge_videos(
         videos_to_merge,
