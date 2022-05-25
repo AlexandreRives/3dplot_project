@@ -159,7 +159,7 @@ def merge_videos(videos_in, video_out, grid_size=None, titles=None, title_positi
     out_size = out_size[::-1]  # reverse HW to WH, as VideoWriter need that format
     video_writer = cv2.VideoWriter(video_out,
                                    cv2.VideoWriter_fourcc(*'XVID'),
-                                   100,
+                                   50,
                                    out_size)
 
     for n in range(least_frames - 1):
@@ -176,14 +176,17 @@ def merge_videos(videos_in, video_out, grid_size=None, titles=None, title_positi
 
 if __name__ == '__main__':
     videos_to_merge = [
-        'test_cam0_frames-0573.mp4',
-        'test_cam1_frames-0573.mp4',
-        'test_cam2_frames-0573.mp4',
-        'test_cam3_frames-0573.mp4',
-        'video.avi',
+        # 'videos_dlc/test_cam0_frames-0513.mp4',
+        # 'video_513_angle1.avi',
+        # 'videos_dlc/test_cam1_frames-0513.mp4',
+        # 'videos_dlc/test_cam2_frames-0513.mp4',
+        # 'video_513_angle2.avi',
+        # 'videos_dlc/test_cam3_frames-0513.mp4'
+        'video_without_KF.avi',
+        'video_with_KF.avi'
     ]
     merge_videos(
         videos_to_merge,
         'merged.mp4',
-        grid_size=(2, 4),
+        grid_size=(1, 2),
         max_frames=554)

@@ -8,11 +8,12 @@ import re
 import pickle
 from matplotlib import pyplot as plt
 from matplotlib import cm
-import matplotlib.animation
 import matplotlib.colors as mcolors
+import kalman as k
+import plotly.graph_objects as go
+from low_pass_filter import low_pass_filter
 
-
-def create_df(csv_files, cam_sns):
+def create_df(csv_files):
     # list of all the dataframes coming from the csv_files
     df_list = list()
 
@@ -41,8 +42,6 @@ def create_df(csv_files, cam_sns):
 
         # keep the cam* from the csv_file and add the cam_sns column into the df.
         print('File Name:', f.split("/")[-1])
-        res = re.findall("cam(\d+)", f)
-        #df.insert(loc=0, column='cam_sns', value=cam_sns[int(res[0])])
 
         df_list.append(df)
 
@@ -59,18 +58,18 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
         bodypart_dict = {}
         for cam_idx in range(len(cam)):
             # Put a threshold
-            if cam[cam_idx]['likelihood_{}'.format(body_part)][frame_idx] > 0.01:
+            if cam[cam_idx]['likelihood_{}'.format(body_part)][frame_idx] > 0.15:
                 bodypart_dict[cam_sns[cam_idx]] = np.array([cam[cam_idx]['{}_x'.format(body_part)][frame_idx],
                                                             cam[cam_idx]['{}_y'.format(body_part)][frame_idx]])
 
         # Check the cameras if more than X
         sn = list(bodypart_dict.keys())
         # call the function to compute the 3d points and add it to the table
-        coord, n_cams = ct.locate_sba(cam_sns=sn, camera_coords=bodypart_dict,
+        coord, n_cams = ct.locate_dlt(cam_sns=sn, camera_coords=bodypart_dict,
                                       intrinsic_params=intrinsic_params,
                                       extrinsic_params=extrinsic_params,
                                       rectify_params=rectify_params)
-        if n_cams<4:
+        if n_cams<2:
             coord=coord*float('NaN')
         result.append(coord)
 
@@ -81,10 +80,8 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
 #   Params files    #
 #####################
 
-with open('/home/arives/PycharmProjects/3dplot_project/params/extrinsic_sba_params.pickle', 'rb') as pickle_file:
+with open('/home/arives/PycharmProjects/3dplot_project/params/extrinsic_params.pickle', 'rb') as pickle_file:
     extrinsic_params = pickle.load(pickle_file)
-# with open('/home/arives/PycharmProjects/3dplot_project/params/sba_params_new.pickle', 'rb') as pickle_file:
-#     extrinsic_params = pickle.load(pickle_file)
 with open('/home/arives/PycharmProjects/3dplot_project/params/intrinsic_params.pickle', 'rb') as pickle_file:
     intrinsic_params = pickle.load(pickle_file)
 with open('/home/arives/PycharmProjects/3dplot_project/params/rectify_params.pickle', 'rb') as pickle_file:
@@ -101,7 +98,7 @@ cam_sns = ['08154551', '08150951', '08151951', '08152151']
 csv_files = glob.glob(os.path.join("/home/arives/PycharmProjects/3dplot_project/coords/", "*.csv"))
 
 # call the function to get all the csv_file and store it into a list of df
-cam = create_df(csv_files, cam_sns)
+cam = create_df(csv_files)
 
 # table to store all the coordinates from all the bodyparts
 coordinates = {}
@@ -109,26 +106,57 @@ body_parts = list(cam[0].columns[1:])
 body_parts = list(pd.unique([x.split('_')[0] for x in body_parts]))
 body_parts.remove('likelihood')
 
+
+initialized = False
 for body_part in body_parts:
     coordinates[body_part] = locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_params,
                                                 rectify_params)
 
+    # Process with low pass filter.
+    # Low pass on X, Y, Z
+    # for i in range(0, 3):
+    # coord = np.vstack(coordinates[body_part])[:,0]
+
+    # y = low_pass_filter(coord)
+
+    # Plot the data
+    # fig = go.Figure()
+    # fig.add_trace(go.Scatter(
+    #     y=coord,
+    #     line=dict(shape='spline'),
+    #     name='signal with noise'
+    # ))
+    # fig.add_trace(go.Scatter(
+    #     y=y,
+    #     line=dict(shape='spline'),
+    #     name='filtered signal'
+    # ))
+    # fig.write_image('x.png')
+
+    corrected = []
+    for idx in range(len(coordinates[body_part])):
+
+        coordinate = coordinates[body_part][idx][0]
+        if not np.any(np.isnan(coordinate)):
+            if not initialized:
+                k.initKalman(coordinate[0], coordinate[1], coordinate[2])
+                initialized = True
+                corrected.append(coordinate)
+            else:
+                p = k.kalmanPredict()
+                s = k.kalmanCorrect(coordinate[0], coordinate[1], coordinate[2])
+                corrected.append(s)
+        else:
+            corrected.append(coordinate)
+    corrected = np.vstack(corrected)
+
+    for i in range(3):
+        corrected[:, i] = k.fill_nan(corrected[:, i])
+    coordinates[body_part] = corrected
 
 #####################
 #       Plot        #
 #####################
-
-# def update_graph(num, lines):
-#     data = df[df['frame'] == num]
-#     graph._offsets3d = (data.x, data.y, data.z)
-#     for line, (bp1, bp2) in zip(lines, skeleton):
-#         data1 = df[(df['frame'] == num) & (df['bodypart'] == bp1)]
-#         data2 = df[(df['frame'] == num) & (df['bodypart'] == bp2)]
-#         if len(data1) and len(data2):
-#             line._verts3d = [float(data1.x), float(data2.x)], [float(data1.y), float(data2.y)], [float(data1.z),
-#                                                                                                  float(data2.z)]
-#     return lines
-
 
 joints = ['elbow', 'wrist',
           'thumb1', 'thumb2', 'thumb3',
@@ -148,21 +176,11 @@ skeleton = [
 
 n_frames = len(cam[0])
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-# ax.set_xlim(-0.2, 0.6)
-# ax.set_ylim(-0.3, 0.1)
-# ax.set_zlim(-0.4, 0.4)
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-ax.set_zlabel("z")
-
 # Colors
 norm = mcolors.Normalize(vmin=0, vmax=20)
 colors = []
 for b in range(21):
     colors.append(cm.cool(norm(b)))
-
 
 frames = []
 body_parts = []
@@ -171,33 +189,61 @@ for frame in range(n_frames):
     for body_part in coordinates:
         body_parts.append(body_part)
         # if len(coordinates[body_part][frame]) <= 1:
-        frames.append(coordinates[body_part][frame][0])
+        frames.append(coordinates[body_part][frame])
         # else:
         #     frames.append(coordinates[body_part][frame])
 
 frames = np.asarray(frames)
 hand = np.asarray(body_parts)
 
-t = np.array([np.ones(21) * i for i in range(n_frames)]).flatten()
-df = pd.DataFrame({"frame": t, "x": frames[:, 0], "y": frames[:, 1], "z": frames[:, 2], "bodypart": hand})
+frames_num = np.array([np.ones(21) * i for i in range(n_frames)]).flatten()
+coordinates = pd.DataFrame({"frame": frames_num, "x": frames[:, 0], "y": frames[:, 1], "z": frames[:, 2], "bodypart": hand})
 
+# import seaborn as sns
+# plt.figure(figsize=(16, 8))
+# y = sns.lineplot(data=coordinates, x=coordinates['frame'], y=coordinates['y'], hue=coordinates['bodypart'])
+# plt.savefig('coordinates_filtered.png')
+
+coordinates_min_x_nan = min(coordinates[~np.isnan(coordinates['x'])]['x'])
+coordinates_min_y_nan = min(coordinates[~np.isnan(coordinates['y'])]['y'])
+coordinates_min_z_nan = min(coordinates[~np.isnan(coordinates['z'])]['z'])
+
+coordinates_max_x_nan = max(coordinates[~np.isnan(coordinates['x'])]['x'])
+coordinates_max_y_nan = max(coordinates[~np.isnan(coordinates['y'])]['y'])
+coordinates_max_z_nan = max(coordinates[~np.isnan(coordinates['z'])]['z'])
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_xlim(coordinates_min_x_nan - 0.05, coordinates_max_x_nan + 0.05)
+ax.set_ylim(coordinates_min_y_nan - 0.05, coordinates_max_y_nan + 0.05)
+ax.set_zlim(coordinates_min_z_nan - 0.05, coordinates_max_z_nan + 0.05)
+
+# Hide grid lines
+ax.grid(visible=None)
+
+# Hide axes ticks
+ax.axis('off')
+
+# ax.view_init(90, 0)
 
 # Loop over frames
-for frame in range (0, len(cam[0])):
-    data = df[df['frame'] == frame]
+for frame in range(0, len(cam[0])):
+    data = coordinates[coordinates['frame'] == frame]
 
     # Draw frame
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlim(-0.2, 0.6)
-    ax.set_ylim(-0.3, 0.1)
-    ax.set_zlim(-0.4, 0.4)
-    # ax.set_xlim(min(df['x'])-0.2, max(df['x'])+0.2)
-    # ax.set_ylim(min(df['y'])-0.2, max(df['y'])+0.2)
-    # ax.set_zlim(min(df['z'])-0.2, max(df['z'])+0.2)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
+    ax.set_xlim(coordinates_min_x_nan - 0.05, coordinates_max_x_nan + 0.05)
+    ax.set_ylim(coordinates_min_y_nan - 0.05, coordinates_max_y_nan + 0.05)
+    ax.set_zlim(coordinates_min_z_nan - 0.05, coordinates_max_z_nan + 0.05)
+
+    # Hide grid lines
+    plt.grid(visible=None)
+
+    # Hide axes ticks
+    ax.axis('off')
+
+    # ax.view_init(90, 0)
 
     # Loop over all body parts
     for b_idx,body_part in enumerate(data['bodypart']):
@@ -221,11 +267,10 @@ for frame in range (0, len(cam[0])):
                            [float(data1.z), float(data2.z)], color='gray')
 
     # Create filename
-    #plt.draw()
     fig.savefig("saved_frames/dataname_{:03}.png".format(frame))
 
 ##############################
-#       Images to Video        #
+#       Images to Video      #
 ##############################
 
 # Put frames together into video
@@ -236,7 +281,11 @@ images = sorted([img for img in os.listdir(image_folder) if img.endswith(".png")
 frame = cv2.imread(os.path.join(image_folder, images[0]))
 height, width, layers = frame.shape
 
-video = cv2.VideoWriter(video_name, 0, 1, (width,height))
+# video = cv2.VideoWriter(video_name, 0, 1, (width,height))
+video = cv2.VideoWriter(filename=video_name,  #Provide a file to write the video to
+    fourcc=cv2.VideoWriter_fourcc(*'XVID'),           #Use whichever codec works for you...
+    fps=50,                                        #How many frames do you want to display per second in your video?
+    frameSize=(width, height))
 
 for image in images:
     video.write(cv2.imread(os.path.join(image_folder, image)))
@@ -244,9 +293,9 @@ for image in images:
 cv2.destroyAllWindows()
 video.release()
 
-
-
-
+path = os.getcwd() + '/saved_frames'
+for f in os.listdir(path):
+    os.remove(os.path.join(path, f))
 
 # xs = []
 # ys = []
@@ -275,3 +324,15 @@ video.release()
 # ani = matplotlib.animation.FuncAnimation(fig, update_graph, n_frames, interval=1, blit=False, fargs=[lines])
 # plt.show()
 # ani.save('3d_plot.mp4', fps=200)
+
+
+# def update_graph(num, lines):
+#     data = df[df['frame'] == num]
+#     graph._offsets3d = (data.x, data.y, data.z)
+#     for line, (bp1, bp2) in zip(lines, skeleton):
+#         data1 = df[(df['frame'] == num) & (df['bodypart'] == bp1)]
+#         data2 = df[(df['frame'] == num) & (df['bodypart'] == bp2)]
+#         if len(data1) and len(data2):
+#             line._verts3d = [float(data1.x), float(data2.x)], [float(data1.y), float(data2.y)], [float(data1.z),
+#                                                                                                  float(data2.z)]
+#     return lines
