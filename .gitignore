@@ -709,3 +709,8 @@ params/old params/sba_data.pickle
 params/old params/sba_params_new.pickle
 params/extrinsic_params.pickle
 params/extrinsic_params.pickle
+*.csv
+*.avi
+*.mp4
+*.pyc
+*.pyc

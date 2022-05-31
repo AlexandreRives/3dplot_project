@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 import matplotlib.colors as mcolors
 import kalman as k
-import plotly.graph_objects as go
 from low_pass_filter import low_pass_filter
 
 def create_df(csv_files):
@@ -69,8 +68,8 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
                                       intrinsic_params=intrinsic_params,
                                       extrinsic_params=extrinsic_params,
                                       rectify_params=rectify_params)
-        if n_cams<2:
-            coord=coord*float('NaN')
+        if n_cams < 2:
+            coord = coord*float('NaN')
         result.append(coord)
 
     return result
@@ -108,51 +107,44 @@ body_parts.remove('likelihood')
 
 
 initialized = False
+final_coord = {}
 for body_part in body_parts:
+    filtered_coord = []
     coordinates[body_part] = locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_params,
                                                 rectify_params)
 
     # Process with low pass filter.
     # Low pass on X, Y, Z
-    # for i in range(0, 3):
-    # coord = np.vstack(coordinates[body_part])[:,0]
+    bodypart_coord = np.row_stack(coordinates[body_part])
+    for idx in range(0, 3):
+        coord = low_pass_filter(bodypart_coord[:, idx])
+        filtered_coord.append(coord)
 
-    # y = low_pass_filter(coord)
+    filtered_coord = np.array(filtered_coord).T
+    final_coord[body_part] = filtered_coord
 
-    # Plot the data
-    # fig = go.Figure()
-    # fig.add_trace(go.Scatter(
-    #     y=coord,
-    #     line=dict(shape='spline'),
-    #     name='signal with noise'
-    # ))
-    # fig.add_trace(go.Scatter(
-    #     y=y,
-    #     line=dict(shape='spline'),
-    #     name='filtered signal'
-    # ))
-    # fig.write_image('x.png')
 
-    corrected = []
-    for idx in range(len(coordinates[body_part])):
-
-        coordinate = coordinates[body_part][idx][0]
-        if not np.any(np.isnan(coordinate)):
-            if not initialized:
-                k.initKalman(coordinate[0], coordinate[1], coordinate[2])
-                initialized = True
-                corrected.append(coordinate)
-            else:
-                p = k.kalmanPredict()
-                s = k.kalmanCorrect(coordinate[0], coordinate[1], coordinate[2])
-                corrected.append(s)
-        else:
-            corrected.append(coordinate)
-    corrected = np.vstack(corrected)
-
-    for i in range(3):
-        corrected[:, i] = k.fill_nan(corrected[:, i])
-    coordinates[body_part] = corrected
+    # Process with Kalman Filter
+    # corrected = []
+    # for idx in range(len(coordinates[body_part])):
+    #
+    #     coordinate = coordinates[body_part][idx][0]
+    #     if not np.any(np.isnan(coordinate)):
+    #         if not initialized:
+    #             k.initKalman(coordinate[0], coordinate[1], coordinate[2])
+    #             initialized = True
+    #             corrected.append(coordinate)
+    #         else:
+    #             p = k.kalmanPredict()
+    #             s = k.kalmanCorrect(coordinate[0], coordinate[1], coordinate[2])
+    #             corrected.append(s)
+    #     else:
+    #         corrected.append(coordinate)
+    # corrected = np.vstack(corrected)
+    #
+    # for i in range(3):
+    #     corrected[:, i] = k.fill_nan(corrected[:, i])
+    # coordinates[body_part] = corrected
 
 #####################
 #       Plot        #
@@ -186,10 +178,10 @@ frames = []
 body_parts = []
 
 for frame in range(n_frames):
-    for body_part in coordinates:
+    for body_part in final_coord:
         body_parts.append(body_part)
         # if len(coordinates[body_part][frame]) <= 1:
-        frames.append(coordinates[body_part][frame])
+        frames.append(final_coord[body_part][frame])
         # else:
         #     frames.append(coordinates[body_part][frame])
 
@@ -224,7 +216,7 @@ ax.grid(visible=None)
 # Hide axes ticks
 ax.axis('off')
 
-# ax.view_init(90, 0)
+ax.view_init(90, 0)
 
 # Loop over frames
 for frame in range(0, len(cam[0])):
@@ -243,7 +235,7 @@ for frame in range(0, len(cam[0])):
     # Hide axes ticks
     ax.axis('off')
 
-    # ax.view_init(90, 0)
+    ax.view_init(90, 0)
 
     # Loop over all body parts
     for b_idx,body_part in enumerate(data['bodypart']):
@@ -284,7 +276,7 @@ height, width, layers = frame.shape
 # video = cv2.VideoWriter(video_name, 0, 1, (width,height))
 video = cv2.VideoWriter(filename=video_name,  #Provide a file to write the video to
     fourcc=cv2.VideoWriter_fourcc(*'XVID'),           #Use whichever codec works for you...
-    fps=50,                                        #How many frames do you want to display per second in your video?
+    fps=100,                                        #How many frames do you want to display per second in your video?
     frameSize=(width, height))
 
 for image in images:
