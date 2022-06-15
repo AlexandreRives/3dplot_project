@@ -714,3 +714,7 @@ params/extrinsic_params.pickle
 *.mp4
 *.pyc
 *.pyc
+.ipynb_checkpoints/kalman_filter-checkpoint.ipynb
+.ipynb_checkpoints/low_pass_filter-checkpoint.ipynb
+.ipynb_checkpoints/optim-checkpoint.ipynb
+*.png
