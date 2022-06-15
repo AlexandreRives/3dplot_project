@@ -1,19 +1,7 @@
 import threedplot
 import pickle
 
-#####################
-#   Params files    #
-#####################
-
-# with open('/home/arives/PycharmProjects/3dplot_project/params/extrinsinc_params.pickle', 'rb') as pickle_file:
-#     extrinsic_params = pickle.load(pickle_file)
-# with open('/home/arives/PycharmProjects/3dplot_project/params/intrinsic_params.pickle', 'rb') as pickle_file:
-#     intrinsic_params = pickle.load(pickle_file)
-# with open('/home/arives/PycharmProjects/3dplot_project/params/rectify_params.pickle', 'rb') as pickle_file:
-# /home/arives/PycharmProjects/3dplot_project/coords/
-#     rectify_params = pickle.load(pickle_file)
-
-while True:
+if __name__ == '__main__':
     print("Set the paths to launch the process")
     print("2d coordinates csv file path :")
     csv_path = str(input())
