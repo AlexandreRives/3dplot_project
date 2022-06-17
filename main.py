@@ -14,6 +14,6 @@ if __name__ == '__main__':
     with open(param_path + 'rectify_params.pickle', 'rb') as rectify_file:
         rectify_params = pickle.load(rectify_file)
     print("Generating 3d coordinates and 3d animation...")
-    threedplot.generate_coordinates(csv_path, extrinsic_params, intrinsic_params, rectify_params)
+    threedplot.generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params, rectify_params)
     print("Success !")
     print("See the file into your folder")

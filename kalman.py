@@ -1,8 +1,12 @@
 from scipy import interpolate
 from numpy.lib.stride_tricks import as_strided as strided
-import cv2
 import numpy as np
+import cv2
 import pandas as pd
+
+##############################
+#       Kalman Filter        #
+##############################
 
 measurement = np.zeros((3,1),dtype=np.float32)
 state = np.zeros((9,1),dtype=np.float32)
@@ -53,6 +57,10 @@ def kalmanCorrect(x, y, z):
     estimated = kalman.correct(measurement)
     return [estimated[0, 0], estimated[1, 0], estimated[2, 0]]
 
+
+##############################
+#       Interpolation        #
+##############################
 
 def mask_knans(a, x):
     a = np.asarray(a)

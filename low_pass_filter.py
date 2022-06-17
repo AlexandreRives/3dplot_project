@@ -1,9 +1,16 @@
 from scipy.signal import butter, filtfilt
 import numpy as np
-import pandas as pd
 from numpy.lib.stride_tricks import as_strided as strided
 
 def low_pass_filter(coord):
+    """
+    Returns filtered coordinates
+
+    Parameters :
+    --------------
+    coord : numpy array
+        list of coordinates of each dimension (x, y or z) to filter
+    """
 
     #Filter requirements
     T = len(coord)/200 # video time

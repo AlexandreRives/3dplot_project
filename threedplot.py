@@ -13,6 +13,15 @@ import kalman as k
 from low_pass_filter import low_pass_filter
 
 def create_df(csv_files):
+    """
+    Return a list of dataframe in due form
+
+    Parameters :
+    --------------
+    csv_files : csv file
+        a deeplabcut csv file with the 2d coordinates
+    """
+
     # list of all the dataframes coming from the csv_files
     df_list = list()
 
@@ -46,8 +55,31 @@ def create_df(csv_files):
 
     return df_list
 
-
 def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_params, rectify_params):
+    """
+    Triangulate the 3d coordinates with 2d coordinates dataframes
+
+    Parameters :
+    --------------
+    body_part : List
+        List of bodyparts
+
+    cam : List
+        List of dataframes
+
+    cam_sns : List
+        List of camera numbers
+    
+    intrinsic_params : Dictionary
+        intrinsic parameters
+
+    extrinsic_params : Dictionary
+        extrinsic parameters
+
+    rectify_params : Dictionary
+        rectify parameters
+    """
+
     # table to store the 3d coordinates
     result = []
 
@@ -74,11 +106,25 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
 
     return result
 
-##############################
-#     Generate 3D points     #
-##############################
+def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params, rectify_params):
+    """
+    Save the 3d coordinates in a csv file and build the 3d animation video
 
-def generate_coordinates(csv_path, extrinsic_params, intrinsic_params, rectify_params):
+    Parameters :
+    --------------
+    csv_path : String
+        csv path
+
+    extrinsic_params : Dictionary
+        extrinsic parameters
+
+    intrinsic_params : Dictionary
+        intrinsic parameters
+
+    rectify_params : Dictionary
+        rectify parameters
+    """
+
     # cameras serial numbers
     cam_sns = ['08154551', '08150951', '08151951', '08152151']
 
