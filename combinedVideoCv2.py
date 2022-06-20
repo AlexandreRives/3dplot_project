@@ -174,19 +174,19 @@ def merge_videos(videos_in, video_out, grid_size=None, titles=None, title_positi
     print(f'Output video saved... {video_out}')
 
 
-if __name__ == '__main__':
-    videos_to_merge = [
-        # 'videos_dlc/test_cam0_frames-0513.mp4',
-        # 'video_513_angle1.avi',
-        # 'videos_dlc/test_cam1_frames-0513.mp4',
-        # 'videos_dlc/test_cam2_frames-0513.mp4',
-        # 'video_513_angle2.avi',
-        # 'videos_dlc/test_cam3_frames-0513.mp4'
-        'video_without_KF_angle2.avi',
-        'video_KF_angle2.avi',
-        'video_LPF_angle2.avi'
-    ]
-    merge_videos(
-        videos_to_merge,
-        'merged.mp4',
-        grid_size=(1, 3))
+# if __name__ == '__main__':
+#     videos_to_merge = [
+#         # 'videos_dlc/test_cam0_frames-0513.mp4',
+#         # 'video_513_angle1.avi',
+#         # 'videos_dlc/test_cam1_frames-0513.mp4',
+#         # 'videos_dlc/test_cam2_frames-0513.mp4',
+#         # 'video_513_angle2.avi',
+#         # 'videos_dlc/test_cam3_frames-0513.mp4'
+#         'video_without_KF_angle2.avi',
+#         'video_KF_angle2.avi',
+#         'video_LPF_angle2.avi'
+#     ]
+#     merge_videos(
+#         videos_to_merge,
+#         'merged.mp4',
+#         grid_size=(1, 3))

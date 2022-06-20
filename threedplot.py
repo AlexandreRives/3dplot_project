@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 import matplotlib.colors as mcolors
 from low_pass_filter import low_pass_filter
+import combinedVideoCv2 as combined
 
 def create_df(csv_files):
     """
@@ -285,7 +286,12 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     for f in os.listdir(path):
         os.remove(os.path.join(path, f))
 
+    videos_to_merge = []
+    combined_video = path + "/combined_video/video_" + trial + ".avi"
 
+    combined.merge_videos(videos_to_merge,
+        combined_video,
+        grid_size=(1, 3))
 
 # joints = ['elbow', 'wrist',
 #           'thumb1', 'thumb2', 'thumb3',

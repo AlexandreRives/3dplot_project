@@ -19,4 +19,4 @@ if __name__ == '__main__':
     print("Generating 3d coordinates csv file and 3d animation video...")
     threedplot.generate_coordinates_and_video(coords, extrinsic_params, intrinsic_params, rectify_params)
     print("Success !")
-    print("See the files into the video and coordinates folders")
+    print("See the files into the videos and coordinates folders")
