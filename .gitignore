@@ -22,3 +22,7 @@ __pycache__/calib_tools.cpython-38.pyc
 .ipynb_checkpoints/optim-checkpoint.ipynb
 *.png
 *.pickle
+utils/.ipynb_checkpoints/kalman_filter-checkpoint.ipynb
+utils/.ipynb_checkpoints/low_pass_filter-checkpoint.ipynb
+utils/.ipynb_checkpoints/plot_coordinates-checkpoint.ipynb
+*.pyc

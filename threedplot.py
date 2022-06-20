@@ -9,7 +9,6 @@ import pickle
 from matplotlib import pyplot as plt
 from matplotlib import cm
 import matplotlib.colors as mcolors
-import kalman as k
 from low_pass_filter import low_pass_filter
 
 def create_df(csv_files):
@@ -21,7 +20,6 @@ def create_df(csv_files):
     csv_files : csv file
         a deeplabcut csv file with the 2d coordinates
     """
-
     # list of all the dataframes coming from the csv_files
     df_list = list()
 
@@ -49,7 +47,7 @@ def create_df(csv_files):
         df.columns = bodyparts_name
 
         # keep the cam* from the csv_file and add the cam_sns column into the df.
-        print('File Name:', f.split("/")[-1])
+        # print('File Name:', f.split("/")[-1])
 
         df_list.append(df)
 
@@ -79,7 +77,6 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
     rectify_params : Dictionary
         rectify parameters
     """
-
     # table to store the 3d coordinates
     result = []
 
@@ -124,12 +121,13 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     rectify_params : Dictionary
         rectify parameters
     """
-
     # cameras serial numbers
     cam_sns = ['08154551', '08150951', '08151951', '08152151']
 
     # use glob to get all the csv files in the folder
     csv_files = glob.glob(os.path.join(csv_path, "*.csv"))
+    num_trial = re.findall("trial-(\d+)", csv_files[0])
+    trial = "trial_" + str(num_trial[0])
 
     # call the function to get all the csv_file and store it into a list of df
     cam = create_df(csv_files)
@@ -179,10 +177,7 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     for frame in range(n_frames):
         for body_part in final_coord:
             body_parts.append(body_part)
-            # if len(coordinates[body_part][frame]) <= 1:
             frames.append(final_coord[body_part][frame])
-            # else:
-            #     frames.append(coordinates[body_part][frame])
 
     frames = np.asarray(frames)
     hand = np.asarray(body_parts)
@@ -190,9 +185,8 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     frames_num = np.array([np.ones(21) * i for i in range(n_frames)]).flatten()
     coordinates = pd.DataFrame({"frame": frames_num, "x": frames[:, 0], "y": frames[:, 1], "z": frames[:, 2], "bodypart": hand})
 
-    file_exists = os.path.exists('filtered_coordinates.csv')
-    if not file_exists:
-        coordinates.to_csv('filtered_coordinates.csv')
+    coordinates_path = os.getcwd() + "/coordinates/3d_coordinates_" + trial + ".csv"
+    coordinates.to_csv(coordinates_path)
 
     #####################
     #       Plot        #
@@ -269,14 +263,14 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
 
     # Put frames together into video
     image_folder = 'saved_frames'
-    video_name = 'video.avi'
+    video_folder = os.getcwd() + "/videos/video_" + trial + ".avi"
 
     images = sorted([img for img in os.listdir(image_folder) if img.endswith(".png")])
     frame = cv2.imread(os.path.join(image_folder, images[0]))
     height, width, layers = frame.shape
 
     # video = cv2.VideoWriter(video_name, 0, 1, (width,height))
-    video = cv2.VideoWriter(filename=video_name,  #Provide a file to write the video to
+    video = cv2.VideoWriter(filename=video_folder,  #Provide a file to write the video to
         fourcc=cv2.VideoWriter_fourcc(*'XVID'),           #Use whichever codec works for you...
         fps=100,                                        #How many frames do you want to display per second in your video?
         frameSize=(width, height))
@@ -290,6 +284,8 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     path = os.getcwd() + '/saved_frames'
     for f in os.listdir(path):
         os.remove(os.path.join(path, f))
+
+
 
 # joints = ['elbow', 'wrist',
 #           'thumb1', 'thumb2', 'thumb3',
