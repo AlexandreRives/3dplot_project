@@ -287,7 +287,7 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
         os.remove(os.path.join(path, f))
 
     path = os.getcwd()
-    video_path = path + "/videos_dlc/trial_" + str(trial_num) + "/"
+    video_path = path + "files/videos_dlc/trial_" + str(trial_num) + "/"
     avi_files = glob.glob(os.path.join(video_path, "*.avi"))
     combined_video = path + "/files/combined_video/video_" + trial + ".avi"
     avi_files.append(video_file)

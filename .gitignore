@@ -10,10 +10,6 @@ PCA_points_calib/.ipynb_checkpoints/PCA-checkpoint.ipynb
 PCA_points_calib/PCA.ipynb
 __pycache__/calib_tools.cpython-38.pyc
 __pycache__/calib_tools.cpython-38.pyc
-*.csv
-*.avi
-*.mp4
-*.pyc
 *.pyc
 *.h5
 *.toml
@@ -25,6 +21,5 @@ __pycache__/calib_tools.cpython-38.pyc
 utils/.ipynb_checkpoints/kalman_filter-checkpoint.ipynb
 utils/.ipynb_checkpoints/low_pass_filter-checkpoint.ipynb
 utils/.ipynb_checkpoints/plot_coordinates-checkpoint.ipynb
-*.pyc
 *.iml
 *.xml
