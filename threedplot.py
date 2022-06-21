@@ -104,7 +104,7 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
 
     return result
 
-def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params, rectify_params):
+def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params, rectify_params, trial_num):
     """
     Save the 3d coordinates in a csv file and build the 3d animation video
 
@@ -186,7 +186,7 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     frames_num = np.array([np.ones(21) * i for i in range(n_frames)]).flatten()
     coordinates = pd.DataFrame({"frame": frames_num, "x": frames[:, 0], "y": frames[:, 1], "z": frames[:, 2], "bodypart": hand})
 
-    coordinates_path = os.getcwd() + "/coordinates/3d_coordinates_" + trial + ".csv"
+    coordinates_path = os.getcwd() + "/files/coordinates/3d_coordinates_" + trial + ".csv"
     coordinates.to_csv(coordinates_path)
 
     #####################
@@ -264,14 +264,14 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
 
     # Put frames together into video
     image_folder = 'saved_frames'
-    video_folder = os.getcwd() + "/videos/video_" + trial + ".avi"
+    video_file = os.getcwd() + "/files/animation/animation_" + trial + ".avi"
 
     images = sorted([img for img in os.listdir(image_folder) if img.endswith(".png")])
     frame = cv2.imread(os.path.join(image_folder, images[0]))
     height, width, layers = frame.shape
 
     # video = cv2.VideoWriter(video_name, 0, 1, (width,height))
-    video = cv2.VideoWriter(filename=video_folder,  #Provide a file to write the video to
+    video = cv2.VideoWriter(filename=video_file,  #Provide a file to write the video to
         fourcc=cv2.VideoWriter_fourcc(*'XVID'),           #Use whichever codec works for you...
         fps=100,                                        #How many frames do you want to display per second in your video?
         frameSize=(width, height))
@@ -286,12 +286,16 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
     for f in os.listdir(path):
         os.remove(os.path.join(path, f))
 
-    videos_to_merge = []
-    combined_video = path + "/combined_video/video_" + trial + ".avi"
+    path = os.getcwd()
+    video_path = path + "/videos_dlc/trial_" + str(trial_num) + "/"
+    avi_files = glob.glob(os.path.join(video_path, "*.avi"))
+    combined_video = path + "/files/combined_video/video_" + trial + ".avi"
+    avi_files.append(video_file)
 
-    combined.merge_videos(videos_to_merge,
+    #check avi_files
+    combined.merge_videos(avi_files,
         combined_video,
-        grid_size=(1, 3))
+        grid_size=(3, 2))
 
 # joints = ['elbow', 'wrist',
 #           'thumb1', 'thumb2', 'thumb3',
