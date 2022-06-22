@@ -104,15 +104,12 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
 
     return result
 
-def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params, rectify_params, trial_num):
+def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_params, trial_num):
     """
     Save the 3d coordinates in a csv file and build the 3d animation video
 
     Parameters :
     --------------
-    csv_path : String
-        csv path
-
     extrinsic_params : Dictionary
         extrinsic parameters
 
@@ -121,14 +118,25 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
 
     rectify_params : Dictionary
         rectify parameters
+
+    trial_num : String
+        trial number
     """
     # cameras serial numbers
     cam_sns = ['08154551', '08150951', '08151951', '08152151']
 
     # use glob to get all the csv files in the folder
+    csv_path = os.getcwd() + "/files/dlc_files/trial_" + trial_num + "/"
+    if(os.path.exists(csv_path) == False):
+        print("Enter a correct trial number !")
+        trial_num = str(input())
+        generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_params, trial_num)
     csv_files = glob.glob(os.path.join(csv_path, "*.csv"))
-    num_trial = re.findall("trial-(\d+)", csv_files[0])
-    trial = "trial_" + str(num_trial[0])
+    trial = "trial_" + trial_num
+
+    # csv_path = os.getcwd() + "/files/dlc_coords/"
+    # num_trial = re.findall("trial-(\d+)", trial_num)
+
 
     # call the function to get all the csv_file and store it into a list of df
     cam = create_df(csv_files)
@@ -287,8 +295,8 @@ def generate_coordinates_and_video(csv_path, extrinsic_params, intrinsic_params,
         os.remove(os.path.join(path, f))
 
     path = os.getcwd()
-    video_path = path + "/files/videos_dlc/trial_" + str(trial_num) + "/"
-    avi_files = glob.glob(os.path.join(video_path, "*.avi"))
+    video_path = path + "/files/dlc_files/trial_" + trial_num + "/"
+    avi_files = glob.glob(os.path.join(video_path, "*.mp4"))
     combined_video = path + "/files/combined_video/video_" + trial + ".avi"
     avi_files.append(video_file)
 
