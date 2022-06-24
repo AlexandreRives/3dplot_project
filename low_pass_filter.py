@@ -2,7 +2,7 @@ from scipy.signal import butter, filtfilt
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as strided
 
-def low_pass_filter(coord):
+def low_pass_filter(coord, fps, cutoff):
     """
     Returns filtered coordinates
 
@@ -13,9 +13,6 @@ def low_pass_filter(coord):
     """
 
     #Filter requirements
-    T = len(coord)/200 # video time
-    fps = 200 # frame per rate
-    cutoff = 10 # desired cutoff frequency of the filter
     nyq = 0.5 * fps # Nyquist Frequency
     order = 2 # sin wave can be approx represented as quadratic
     normal_cutoff = cutoff / nyq
