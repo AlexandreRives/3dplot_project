@@ -1,4 +1,6 @@
-import calib_tools as ct
+import json
+import sys
+
 import pandas as pd
 import numpy as np
 import os
@@ -9,52 +11,50 @@ import pickle
 from matplotlib import pyplot as plt
 from matplotlib import cm
 import matplotlib.colors as mcolors
+from scipy import linalg
+
+from combinedVideoCv2 import merge_videos
 from low_pass_filter import low_pass_filter
-import combinedVideoCv2 as combined
 
-def create_df(csv_files):
-    """
-    Return a list of dataframe in due form
+def locate_dlt(cam_sns, camera_coords, intrinsic_params, extrinsic_params, rectify_params=None):
+    A = []
+    cameras_used = 0
+    location = np.zeros((1, 3))
+    for idx in range(len(cam_sns)):
+        sn = cam_sns[idx]
+        if len(camera_coords[sn]) > 0:
+            point = camera_coords[sn]
+            RT = np.concatenate([extrinsic_params[sn]['r'], extrinsic_params[sn]['t']], axis=-1)
+            P = intrinsic_params[sn]['k'] @ RT
+            A.append(point[1] * P[2, :] - P[1, :])
+            A.append(P[0, :] - point[0] * P[2, :])
+            cameras_used = cameras_used + 1
+    if cameras_used > 1:
+        A = np.array(A)
+        A = np.array(A).reshape((cameras_used * 2, 4))
+        # print('A: ')
+        # print(A)
 
-    Parameters :
-    --------------
-    csv_files : csv file
-        a deeplabcut csv file with the 2d coordinates
-    """
-    # list of all the dataframes coming from the csv_files
-    df_list = list()
+        B = A.transpose() @ A
+        U, s, Vh = linalg.svd(B, full_matrices=False)
 
-    # loop over the list of csv files
-    for f in sorted(csv_files):
-        # read the csv file
-        df = pd.read_csv(f, skiprows=2)
-        bodyparts_name = ["elbow_x", "elbow_y", "likelihood_elbow", "wrist_x", "wrist_y", "likelihood_wrist",
-                          "thumb1_x", "thumb1_y", "likelihood_thumb1",
-                          "thumb2_x", "thumb2_y", "likelihood_thumb2", "thumb3_x", "thumb3_y", "likelihood_thumb3",
-                          "index1_x", "index1_y", "likelihood_index1",
-                          "index2_x", "index2_y", "likelihood_index2", "index3_x", "index3_y", "likelihood_index3",
-                          "index4_x", "index4_y", "likelihood_index4",
-                          "middle1_x", "middle1_y", "likelihood_middle1", "middle2_x", "middle2_y",
-                          "likelihood_middle2", "middle3_x", "middle3_y", "likelihood_middle3",
-                          "middle4_x", "middle4_y", "likelihood_middle4", "ring1_x", "ring1_y", "likelihood_ring1",
-                          "ring2_x", "ring2_y", "likelihood_ring2",
-                          "ring3_x", "ring3_y", "likelihood_ring3", "ring4_x", "ring4_y", "likelihood_ring4",
-                          "little1_x", "little1_y", "likelihood_little1",
-                          "little2_x", "little2_y", "likelihood_little2", "little3_x", "little3_y",
-                          "likelihood_little3", "little4_x", "little4_y", "likelihood_little4"]
+        location = Vh[-1, 0:3] / Vh[-1, 3]
+        location = np.reshape(location, (1, 3))
 
-        df.drop(df.columns[0], axis=1, inplace=True)
+        # Apply rectification
+        if rectify_params is not None:
+            table_center = rectify_params['origin']
+            v1=rectify_params['x_axis'] - table_center
+            v2=rectify_params['y_axis'] - table_center
+            v3=rectify_params['z_axis'] - table_center
+            v1 = v1 / np.linalg.norm(v1)
+            v2 = v2 / np.linalg.norm(v2)
+            v3 = v3 / np.linalg.norm(v3)
+            M_inv=np.linalg.inv(np.transpose(np.squeeze([v1,v2,v3])))
+            location=np.transpose(np.matmul(M_inv,np.transpose((location-table_center))))
+    return [location, cameras_used]
 
-        df.columns = bodyparts_name
-
-        # keep the cam* from the csv_file and add the cam_sns column into the df.
-        # print('File Name:', f.split("/")[-1])
-
-        df_list.append(df)
-
-    return df_list
-
-def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_params, rectify_params):
+def locate_3d_function(body_part, cam_df, intrinsic_params, extrinsic_params, rectify_params):
     """
     Triangulate the 3d coordinates with 2d coordinates dataframes
 
@@ -78,23 +78,26 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
     rectify_params : Dictionary
         rectify parameters
     """
+    cam_sns=list(cam_df.keys())
     # table to store the 3d coordinates
     result = []
 
     # create the bodyparts dictionnary
-    n_frames = len(cam[0])
+    n_frames = len(cam_df[cam_sns[0]])
     for frame_idx in range(n_frames):
         bodypart_dict = {}
-        for cam_idx in range(len(cam)):
+        for cam_sn in cam_sns:
             # Put a threshold
-            if cam[cam_idx]['likelihood_{}'.format(body_part)][frame_idx] > 0.15:
-                bodypart_dict[cam_sns[cam_idx]] = np.array([cam[cam_idx]['{}_x'.format(body_part)][frame_idx],
-                                                            cam[cam_idx]['{}_y'.format(body_part)][frame_idx]])
+            scorer=cam_df[cam_sn].columns.levels[0][0]
 
-        # Check the cameras if more than X
-        sn = list(bodypart_dict.keys())
-        # call the function to compute the 3d points and add it to the table
-        coord, n_cams = ct.locate_dlt(cam_sns=sn, camera_coords=bodypart_dict,
+            if cam_df[cam_sn][(scorer,body_part,'likelihood')][frame_idx] > 0.15:
+                bodypart_dict[cam_sn] = np.array([cam_df[cam_sn][(scorer,body_part,'x')][frame_idx],
+                                                  cam_df[cam_sn][(scorer,body_part,'y')][frame_idx]])
+            else:
+                bodypart_dict[cam_sn] = []
+
+                # call the function to compute the 3d points and add it to the table
+        coord, n_cams = locate_dlt(cam_sns=cam_sns, camera_coords=bodypart_dict,
                                       intrinsic_params=intrinsic_params,
                                       extrinsic_params=extrinsic_params,
                                       rectify_params=rectify_params)
@@ -104,7 +107,7 @@ def locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_para
 
     return result
 
-def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_params, trial_num):
+def generate_coordinates_and_video(settings, extrinsic_params, intrinsic_params, rectify_params, video_folder, output_folder):
     """
     Save the 3d coordinates in a csv file and build the 3d animation video
 
@@ -122,48 +125,43 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
     trial_num : String
         trial number
     """
-    # cameras serial numbers
-    cam_sns = ['08154551', '08150951', '08151951', '08152151']
+
+    cam_sns = settings['cam_sns']
 
     # use glob to get all the csv files in the folder
-    csv_path = os.getcwd() + "/files/dlc_files/trial_" + trial_num + "/"
-    if(os.path.exists(csv_path) == False):
-        print("Enter a correct trial number !")
-        trial_num = str(input())
-        generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_params, trial_num)
-    csv_files = glob.glob(os.path.join(csv_path, "*.csv"))
-    trial = "trial_" + trial_num
+    h5_files = glob.glob(os.path.join(video_folder, "*filtered.h5"))
+    cam_df = {}
+    # loop over the list of csv files
+    for f in sorted(h5_files):
+        # read the csv file
+        df = pd.read_hdf(f)
+        cam_idx=int(os.path.split(f)[1].split('_')[1][3:])
+        cam_sn=cam_sns[cam_idx]
 
-    # csv_path = os.getcwd() + "/files/dlc_coords/"
-    # num_trial = re.findall("trial-(\d+)", trial_num)
-
-
-    # call the function to get all the csv_file and store it into a list of df
-    cam = create_df(csv_files)
+        cam_df[cam_sn]=df
 
     # table to store all the coordinates from all the bodyparts
     coordinates = {}
-    body_parts = list(cam[0].columns[1:])
-    body_parts = list(pd.unique([x.split('_')[0] for x in body_parts]))
-    body_parts.remove('likelihood')
+    body_parts = list(cam_df[cam_sns[0]].columns.levels[1])
 
     final_coord = {}
     for body_part in body_parts:
         filtered_coord = []
-        coordinates[body_part] = locate_3d_function(body_part, cam, cam_sns, intrinsic_params, extrinsic_params,
+        coordinates[body_part] = locate_3d_function(body_part, cam_df, intrinsic_params, extrinsic_params,
                                                     rectify_params)
 
         # Process with low pass filter.
         # Low pass on X, Y, Z
         bodypart_coord = np.row_stack(coordinates[body_part])
         for idx in range(0, 3):
-            coord = low_pass_filter(bodypart_coord[:, idx])
+            coord = low_pass_filter(bodypart_coord[:, idx], 200, 10)
             filtered_coord.append(coord)
 
         filtered_coord = np.array(filtered_coord).T
         final_coord[body_part] = filtered_coord
 
     skeleton = [
+        ['shoulder', 'elbow'],
         ['elbow', 'wrist'],
         ['wrist', 'thumb1'], ['thumb1', 'thumb2'], ['thumb2', 'thumb3'],
         ['wrist', 'index1'], ['index1', 'index2'], ['index2', 'index3'], ['index3', 'index4'],
@@ -172,29 +170,29 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
         ['wrist', 'little1'], ['little1', 'little2'], ['little2', 'little3'], ['little3', 'little4']
     ]
 
-    n_frames = len(cam[0])
+    n_frames = len(cam_df[cam_sns[0]])
 
     # Colors
-    norm = mcolors.Normalize(vmin=0, vmax=20)
+    norm = mcolors.Normalize(vmin=0, vmax=len(body_parts)-1)
     colors = []
-    for b in range(21):
+    for b in range(len(body_parts)):
         colors.append(cm.cool(norm(b)))
 
     frames = []
-    body_parts = []
+    markers = []
 
     for frame in range(n_frames):
-        for body_part in final_coord:
-            body_parts.append(body_part)
-            frames.append(final_coord[body_part][frame])
+        for marker in final_coord:
+            markers.append(marker)
+            frames.append(final_coord[marker][frame])
 
     frames = np.asarray(frames)
-    hand = np.asarray(body_parts)
+    markers = np.asarray(markers)
 
-    frames_num = np.array([np.ones(21) * i for i in range(n_frames)]).flatten()
-    coordinates = pd.DataFrame({"frame": frames_num, "x": frames[:, 0], "y": frames[:, 1], "z": frames[:, 2], "bodypart": hand})
+    frames_num = np.array([np.ones(len(body_parts)) * i for i in range(n_frames)]).flatten()
+    coordinates = pd.DataFrame({"frame": frames_num, "x": frames[:, 0], "y": frames[:, 1], "z": frames[:, 2], "marker": markers})
 
-    coordinates_path = os.getcwd() + "/files/coordinates/3d_coordinates_" + trial + ".csv"
+    coordinates_path = os.path.join(output_folder, '3d_coordinates.csv')
     coordinates.to_csv(coordinates_path)
 
     #####################
@@ -208,6 +206,12 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
     coordinates_max_x_nan = max(coordinates[~np.isnan(coordinates['x'])]['x'])
     coordinates_max_y_nan = max(coordinates[~np.isnan(coordinates['y'])]['y'])
     coordinates_max_z_nan = max(coordinates[~np.isnan(coordinates['z'])]['z'])
+
+    video_file = os.path.join(output_folder, 'animation.avi')
+    video = cv2.VideoWriter(filename=video_file,  # Provide a file to write the video to
+                            fourcc=cv2.VideoWriter_fourcc(*'XVID'),  # Use whichever codec works for you...
+                            fps=100,  # How many frames do you want to display per second in your video?
+                            frameSize=(640, 480))
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -224,7 +228,7 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
     # ax.view_init(90, 0)
 
     # Loop over frames
-    for frame in range(0, len(cam[0])):
+    for frame in range(0, n_frames):
         data = coordinates[coordinates['frame'] == frame]
 
         # Draw frame
@@ -243,12 +247,12 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
         # ax.view_init(90, 0)
 
         # Loop over all body parts
-        for b_idx,body_part in enumerate(data['bodypart']):
+        for b_idx,body_part in enumerate(data['marker']):
 
              # If not coordinate is NaN
-             x = data[data['bodypart'] == body_part]['x']
-             y = data[data['bodypart'] == body_part]['y']
-             z = data[data['bodypart'] == body_part]['z']
+             x = data[data['marker'] == body_part]['x']
+             y = data[data['marker'] == body_part]['y']
+             z = data[data['marker'] == body_part]['z']
              if not(np.isnan(x.iloc[0]) or np.isnan(y.iloc[0]) or np.isnan(z.iloc[0])):
                 # Get color for that body part
                 graph = ax.scatter(x, y, z, s=10, color=colors[b_idx])
@@ -256,52 +260,35 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
         # Loop through skeleton
         for bp1, bp2 in skeleton:
             # If neither coordinate is NaN
-            data1 = data[data['bodypart'] == bp1]
-            data2 = data[data['bodypart'] == bp2]
+            data1 = data[data['marker'] == bp1]
+            data2 = data[data['marker'] == bp2]
             if data1['x'].iloc[0] != np.float64('NaN') and data1['y'].iloc[0] != np.float64('NaN') and data1['z'].iloc[0] != np.float64('NaN') and data2['x'].iloc[0] != np.float64('NaN') and data2['y'].iloc[0] != np.float64('NaN') and data2['z'].iloc[0] != np.float64('NaN'):
                 # Draw line
                 line = ax.plot([float(data1.x), float(data2.x)], [float(data1.y), float(data2.y)],
                                [float(data1.z), float(data2.z)], color='gray')
 
         # Create filename
-        fig.savefig("saved_frames/dataname_{:03}.png".format(frame))
+        #fig.savefig("dataname_{:03}.png".format(frame))
+        # redraw the canvas
+        fig.canvas.draw()
+        # convert canvas to image
+        plt_img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        plt_img = plt_img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        # img is rgb, convert to opencv's default bgr
+        plt_img = cv2.cvtColor(plt_img, cv2.COLOR_RGB2BGR)
 
-    ##############################
-    #       Images to Video      #
-    ##############################
-
-    # Put frames together into video
-    image_folder = 'saved_frames'
-    video_file = os.getcwd() + "/files/animation/animation_" + trial + ".avi"
-
-    images = sorted([img for img in os.listdir(image_folder) if img.endswith(".png")])
-    frame = cv2.imread(os.path.join(image_folder, images[0]))
-    height, width, layers = frame.shape
-
-    # video = cv2.VideoWriter(video_name, 0, 1, (width,height))
-    video = cv2.VideoWriter(filename=video_file,  #Provide a file to write the video to
-        fourcc=cv2.VideoWriter_fourcc(*'XVID'),           #Use whichever codec works for you...
-        fps=100,                                        #How many frames do you want to display per second in your video?
-        frameSize=(width, height))
-
-    for image in images:
-        video.write(cv2.imread(os.path.join(image_folder, image)))
+        video.write(plt_img)
 
     cv2.destroyAllWindows()
     video.release()
 
-    path = os.getcwd() + '/saved_frames'
-    for f in os.listdir(path):
-        os.remove(os.path.join(path, f))
+    video_files = glob.glob(os.path.join(video_folder, "*filtered_labeled.mp4"))
+    video_files.append(video_file)
 
-    path = os.getcwd()
-    video_path = path + "/files/dlc_files/trial_" + trial_num + "/"
-    avi_files = glob.glob(os.path.join(video_path, "*.mp4"))
-    combined_video = path + "/files/combined_video/video_" + trial + ".avi"
-    avi_files.append(video_file)
+    combined_video = os.path.join(output_folder, 'video.avi')
 
     #check avi_files
-    combined.merge_videos(avi_files,
+    merge_videos(video_files,
         combined_video,
         grid_size=(3, 2))
 
@@ -374,3 +361,39 @@ def generate_coordinates_and_video(extrinsic_params, intrinsic_params, rectify_p
 # for i in range(3):
 #     corrected[:, i] = k.fill_nan(corrected[:, i])
 # coordinates[body_part] = corrected
+
+if __name__ == '__main__':
+
+    try:
+        calib_folder = sys.argv[1]
+        print('USING: %s' % calib_folder)
+    except:
+        calib_folder = None
+
+    try:
+        video_folder = sys.argv[2]
+        print('USING: %s' % video_folder)
+    except:
+        video_folder = None
+
+    try:
+        output_folder = sys.argv[3]
+        print('USING: %s' % output_folder)
+    except:
+        output_folder = None
+
+    # opening a json file
+    with open(os.path.join(calib_folder, 'settings.json')) as settings_file:
+        settings = json.load(settings_file)
+
+    with open(os.path.join(calib_folder, 'extrinsic_params.pickle'), 'rb') as extrinsic_file:
+        extrinsic_params = pickle.load(extrinsic_file)
+    with open(os.path.join(calib_folder, 'intrinsic_params.pickle'), 'rb') as intrinsic_file:
+        intrinsic_params = pickle.load(intrinsic_file)
+    with open(os.path.join(calib_folder, 'rectify_params.pickle'), 'rb') as rectify_file:
+        rectify_params = pickle.load(rectify_file)
+    print("Generating 3d coordinates csv file and 3d animation video...")
+    generate_coordinates_and_video(settings, extrinsic_params, intrinsic_params, rectify_params, video_folder,
+                                   output_folder)
+    print("Success !")
+    print("See the files into the videos and coordinates folders")
